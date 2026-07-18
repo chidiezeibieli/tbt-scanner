@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Day 2: Candlestick Data Test</title>
+<style>
+  body { font-family: monospace; padding: 16px; background: #111; color: #eee; }
+  h3 { color: #4ea1ff; }
+  pre { background: #222; padding: 10px; border-radius: 6px; white-space: pre-wrap; word-break: break-word; font-size: 12px; }
+  .ok { color: #4caf50; }
+  .fail { color: #ff5252; }
+</style>
+</head>
+<body>
+  <h2>Day 2: Candlestick history check</h2>
+
+  <h3>Test 1: Bitget - BTCUSDT perp futures, 15m candles</h3>
+  <pre id="bitget">testing...</pre>
+
+  <h3>Test 2: Bitget - AAPLUSDT.P (stock perp), 15m candles</h3>
+  <pre id="gate">testing...</pre>
+
+  <script>
+    // Test 1: Bitget futures candles
+    fetch("https://api.bitget.com/api/v2/mix/market/candles?symbol=BTCUSDT&granularity=15m&limit=5&productType=usdt-futures")
+      .then(r => r.json())
+      .then(d => {
+        document.getElementById("bitget").innerHTML =
+          '<span class="ok">SUCCESS</span>\n' + JSON.stringify(d, null, 2);
+      })
+      .catch(e => {
+        document.getElementById("bitget").innerHTML =
+          '<span class="fail">FAILED: ' + e + '</span>';
+      });
+
+    // Test 2: Bitget stock perpetual futures candles (AAPL)
+    fetch("https://api.bitget.com/api/v2/mix/market/candles?symbol=AAPLUSDT&granularity=15m&limit=5&productType=usdt-futures")
+      .then(r => r.json())
+      .then(d => {
+        document.getElementById("gate").innerHTML =
+          '<span class="ok">SUCCESS</span>\n' + JSON.stringify(d, null, 2);
+      })
+      .catch(e => {
+        document.getElementById("gate").innerHTML =
+          '<span class="fail">FAILED: ' + e + '</span>';
+      });
+  </script>
+</body>
+</html>
