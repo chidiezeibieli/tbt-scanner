@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TBT Scanner</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; background: #0d0d0d; color: #eee; margin: 0; padding: 12px; }
+  h2 { text-align: center; margin: 8px 0 16px; font-size: 20px; }
+  .controls { display: flex; gap: 8px; justify-content: center; margin-bottom: 12px; flex-wrap: wrap; }
+  select, button { font-size: 15px; padding: 8px 12px; border-radius: 6px; border: 1px solid #444; background: #1a1a1a; color: #eee; }
+  button { background: #2a5; border: none; font-weight: bold; }
+  button:disabled { background: #555; }
+  .status { text-align: center; color: #999; font-size: 13px; margin-bottom: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  td, th { padding: 6px 4px; text-align: center; border: 1px solid #222; }
+  th { background: #333; color: #fff; }
+  .long { background: rgba(0,180,0,0.18); }
+  .short { background: rgba(220,0,0,0.18); }
+  .neutral { background: rgba(255,255,255,0.03); color: #777; }
+  .sig-long { color: #4caf50; font-weight: bold; }
+  .sig-short { color: #ff5252; font-weight: bold; }
+  label { display: flex; align-items: center; gap: 4px; font-size: 13px; color: #ccc; }
+</style>
+</head>
+<body>
+  <h2>TBT | Trend Confirmation + Scanner</h2>
+
+  <div class="controls">
+    <select id="groupSelect">
+      <option value="1">Group 1</option>
+      <option value="2">Group 2</option>
+      <option value="3">Group 3</option>
+    </select>
+    <select id="tfSelect">
+      <option value="5m">5m</option>
+      <option value="15m" selected>15m</option>
+      <option value="1H">1H</option>
+      <option value="4H">4H</option>
+    </select>
+    <button id="runBtn" onclick="runScan()">Scan</button>
+  </div>
+  <div class="controls">
+    <label><input type="checkbox" id="activeOnly"> Show only active signals</label>
+  </div>
+  <div class="status" id="status"></div>
+
+  <table id="table"></table>
+
+  <script>
+    // ── Symbol groups (Bitget USDT perpetual futures, no .P suffix for API calls) ──
+    const GROUPS = {
+      1: ["APTUSDT","BTCUSDT","XRPUSDT","DOGEUSDT","SOLUSDT","GRAMUSDT","SUIUSDT","ONDOUSDT","ZECUSDT","SEIUSDT",
+          "UNIUSDT","AAVEUSDT","ALGOUSDT","TAOUSDT","ENAUSDT","XLMUSDT","BNBUSDT","LINKUSDT","ADAUSDT","AVAXUSDT",
+          "DOTUSDT","NEARUSDT","ETHUSDT","HYPEUSDT","TRXUSDT","ETCUSDT","FILUSDT","INJUSDT","ARBUSDT","OPUSDT"],
+      2: ["NFLXUSDT","AMDUSDT","CRCLUSDT","AAPLUSDT","PLTRUSDT","NVDAUSDT","LMTUSDT","CSCOUSDT","JPMUSDT","SPCXUSDT",
+          "SLVUSDT","CVXUSDT","BABAUSDT","MAUSDT","UNHUSDT","XAUTUSDT","HOODUSDT","METAUSDT","GOOGLUSDT","TSLAUSDT",
+          "AMZNUSDT","COINUSDT","PGUSDT","MCDUSDT","MSFTUSDT","AVGOUSDT","PEPUSDT","KOUSDT","BRKUSDT","LLYUSDT"],
+      3: ["BASEDUSDT","BGBUSDT","BILLUSDT","PUMPUSDT","LITUSDT","WLFIUSDT","ALLOUSDT","ORDIUSDT","GWEIUSDT","SIRENUSDT",
+          "BANKUSDT","AGLDUSDT","JUPUSDT","FARTCOINUSDT","WIFUSDT","JTOUSDT","EIGENUSDT","XPLUSDT","MORPHOUSDT","PENGUUSDT",
+          "PENDLEUSDT","ETHFIUSDT","USUALUSDT","KATUSDT","MUSDT","SYNUSDT","QUSDT","EDGEUSDT","BSBUSDT","SLXUSDT"]
+    };
+
+    // ── Indicator math (same as Day 3) ──
+    function ema(values, period) {
+      const k = 2 / (period + 1);
+      const out = new Array(values.length).fill(null);
+      let seed = 0;
+      for (let i = 0; i < period; i++) seed += values[i];
+      seed /= period;
+      out[period - 1] = seed;
+      for (let i = period; i < values.length; i++) out[i] = values[i] * k + out[i - 1] * (1 - k);
+      return out;
+    }
+    function sma(values, period) {
+      const out = new Array(values.length).fill(null);
+      for (let i = period - 1; i < values.length; i++) {
+        let sum = 0;
+        for (let j = i - period + 1; j <= i; j++) sum += values[j];
+        out[i] = sum / period;
+      }
+      return out;
+    }
+    function macd(closes, fastLen, slowLen, sigLen) {
+      const emaFast = ema(closes, fastLen);
+      const emaSlow = ema(closes, slowLen);
+      const macdLine = closes.map((_, i) => (emaFast[i] != null && emaSlow[i] != null) ? emaFast[i] - emaSlow[i] : null);
+      const firstValid = macdLine.findIndex(v => v !== null);
+      const trimmed = macdLine.slice(firstValid);
+      const sigTrimmed = ema(trimmed, sigLen);
+      const signalLine = new Array(closes.length).fill(null);
+      for (let i = 0; i < sigTrimmed.length; i++) signalLine[firstValid + i] = sigTrimmed[i];
+      return { macdLine, signalLine };
+    }
+    function atr(highs, lows, closes, period) {
+      const tr = highs.map((h, i) => i === 0 ? h - lows[i] : Math.max(h - lows[i], Math.abs(h - closes[i-1]), Math.abs(lows[i] - closes[i-1])));
+      const out = new Array(tr.length).fill(null);
+      let sum = 0;
+      for (let i = 0; i < period; i++) sum += tr[i];
+      out[period - 1] = sum / period;
+      for (let i = period; i < tr.length; i++) out[i] = (out[i-1] * (period - 1) + tr[i]) / period;
+      return out;
+    }
+    function supertrend(highs, lows, closes, factor, period) {
+      const atrVals = atr(highs, lows, closes, period);
+      const n = closes.length;
+      const finalUpperArr = new Array(n).fill(null);
+      const finalLowerArr = new Array(n).fill(null);
+      const trend = new Array(n).fill(null);
+      const st = new Array(n).fill(null);
+
+      for (let i = 0; i < n; i++) {
+        if (atrVals[i] == null) continue;
+        const hl2 = (highs[i] + lows[i]) / 2;
+        const basicUpper = hl2 + factor * atrVals[i];
+        const basicLower = hl2 - factor * atrVals[i];
+
+        let prevIdx = i - 1;
+        while (prevIdx >= 0 && finalUpperArr[prevIdx] == null) prevIdx--;
+
+        if (prevIdx < 0) {
+          finalUpperArr[i] = basicUpper;
+          finalLowerArr[i] = basicLower;
+          trend[i] = closes[i] > basicLower ? 1 : -1;
+          st[i] = trend[i] === 1 ? finalLowerArr[i] : finalUpperArr[i];
+          continue;
+        }
+
+        const prevUpper = finalUpperArr[prevIdx];
+        const prevLower = finalLowerArr[prevIdx];
+
+        finalUpperArr[i] = (basicUpper < prevUpper || closes[i - 1] > prevUpper) ? basicUpper : prevUpper;
+        finalLowerArr[i] = (basicLower > prevLower || closes[i - 1] < prevLower) ? basicLower : prevLower;
+
+        const prevTrend = trend[prevIdx];
+        if (prevTrend === -1 && closes[i] > prevUpper) trend[i] = 1;
+        else if (prevTrend === 1 && closes[i] < prevLower) trend[i] = -1;
+        else trend[i] = prevTrend;
+
+        st[i] = trend[i] === 1 ? finalLowerArr[i] : finalUpperArr[i];
+      }
+      return st;
+    }
+
+    function cleanName(sym) {
+      return sym.replace(/USDT$/, "");
+    }
+
+    async function fetchSignal(symbol, granularity) {
+      try {
+        const res = await fetch(`https://api.bitget.com/api/v2/mix/market/candles?symbol=${symbol}&granularity=${granularity}&limit=150&productType=usdt-futures`);
+        const json = await res.json();
+        if (!json.data || json.data.length < 40) return null; // not enough history / symbol likely doesn't exist
+        let bars = json.data.slice().sort((a,b) => Number(a[0]) - Number(b[0]));
+        const closes = bars.map(b => parseFloat(b[4]));
+        const highs  = bars.map(b => parseFloat(b[2]));
+        const lows   = bars.map(b => parseFloat(b[3]));
+        const s8 = sma(closes, 8);
+        const { macdLine, signalLine } = macd(closes, 12, 26, 9);
+        const st = supertrend(highs, lows, closes, 3, 10);
+        const i = closes.length - 1;
+        if (macdLine[i] == null || signalLine[i] == null || s8[i] == null || st[i] == null) return null;
+        const bullish = macdLine[i] > signalLine[i] && macdLine[i] < 0 && signalLine[i] < 0 && closes[i] > s8[i] && s8[i] > st[i];
+        const bearish = macdLine[i] < signalLine[i] && macdLine[i] > 0 && signalLine[i] > 0 && closes[i] < s8[i] && s8[i] < st[i];
+        return { bullish, bearish, ok: true };
+      } catch (e) {
+        return null; // symbol missing, network hiccup, etc.
+      }
+    }
+
+    async function runScan() {
+      const btn = document.getElementById("runBtn");
+      const groupNum = document.getElementById("groupSelect").value;
+      const granularity = document.getElementById("tfSelect").value;
+      const activeOnly = document.getElementById("activeOnly").checked;
+      const symbols = GROUPS[groupNum];
+      const statusEl = document.getElementById("status");
+      const tableEl = document.getElementById("table");
+
+      btn.disabled = true;
+      tableEl.innerHTML = "";
+      let done = 0;
+      const results = new Array(symbols.length).fill(null);
+
+      // fetch with light concurrency (5 at a time) to avoid rate limits
+      const CONCURRENCY = 5;
+      let idx = 0;
+      async function worker() {
+        while (idx < symbols.length) {
+          const myIdx = idx++;
+          statusEl.textContent = `Scanning ${myIdx + 1}/${symbols.length}...`;
+          results[myIdx] = await fetchSignal(symbols[myIdx], granularity);
+          done++;
+          statusEl.textContent = `Scanned ${done}/${symbols.length}`;
+        }
+      }
+      await Promise.all(new Array(CONCURRENCY).fill(0).map(worker));
+
+      // build table, 2 symbol/signal pairs per row (4 columns)
+      let html = "<tr><th>Symbol</th><th>Signal</th><th>Symbol</th><th>Signal</th></tr>";
+      const rows = Math.ceil(symbols.length / 2);
+      for (let r = 0; r < rows; r++) {
+        const iA = r * 2, iB = iA + 1;
+        html += "<tr>" + cellPair(symbols[iA], results[iA], activeOnly);
+        if (iB < symbols.length) html += cellPair(symbols[iB], results[iB], activeOnly);
+        else html += "<td></td><td></td>";
+        html += "</tr>";
+      }
+      tableEl.innerHTML = html;
+      statusEl.textContent = `Done — ${symbols.length} symbols, ${granularity} timeframe`;
+      btn.disabled = false;
+    }
+
+    function cellPair(symbol, result, activeOnly) {
+      const name = cleanName(symbol);
+      if (!result) {
+        if (activeOnly) return `<td class="neutral"></td><td class="neutral"></td>`;
+        return `<td class="neutral">${name}<br><small>no data</small></td><td class="neutral">—</td>`;
+      }
+      const active = result.bullish || result.bearish;
+      if (activeOnly && !active) return `<td class="neutral"></td><td class="neutral"></td>`;
+      const cls = result.bullish ? "long" : result.bearish ? "short" : "neutral";
+      const sigCls = result.bullish ? "sig-long" : result.bearish ? "sig-short" : "";
+      const sigText = result.bullish ? "🟢 LONG" : result.bearish ? "🔴 SHORT" : "—";
+      return `<td class="${cls}">${name}</td><td class="${cls} ${sigCls}">${sigText}</td>`;
+    }
+  </script>
+</body>
+</html>
