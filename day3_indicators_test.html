@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Day 3: Indicator Math Test</title>
+<style>
+  body { font-family: monospace; padding: 16px; background: #111; color: #eee; }
+  h3 { color: #4ea1ff; }
+  pre { background: #222; padding: 10px; border-radius: 6px; white-space: pre-wrap; word-break: break-word; font-size: 13px; }
+  .ok { color: #4caf50; }
+  .fail { color: #ff5252; }
+  .row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #333; }
+  .label { color: #999; }
+  select, button { font-size: 16px; padding: 8px; margin: 4px 0; }
+</style>
+</head>
+<body>
+  <h2>Day 3: MACD + SMA8 + Supertrend</h2>
+  <p>Symbol: <select id="symSelect">
+    <option value="BTCUSDT">BTCUSDT.P</option>
+    <option value="ETHUSDT">ETHUSDT.P</option>
+    <option value="AAPLUSDT">AAPLUSDT.P</option>
+  </select>
+  <button onclick="run()">Run</button></p>
+
+  <div id="output">Pick a symbol and tap Run.</div>
+
+  <script>
+    // ── EMA ──
+    function ema(values, period) {
+      const k = 2 / (period + 1);
+      const out = new Array(values.length).fill(null);
+      let seed = 0;
+      for (let i = 0; i < period; i++) seed += values[i];
+      seed /= period;
+      out[period - 1] = seed;
+      for (let i = period; i < values.length; i++) {
+        out[i] = values[i] * k + out[i - 1] * (1 - k);
+      }
+      return out;
+    }
+
+    // ── SMA ──
+    function sma(values, period) {
+      const out = new Array(values.length).fill(null);
+      for (let i = period - 1; i < values.length; i++) {
+        let sum = 0;
+        for (let j = i - period + 1; j <= i; j++) sum += values[j];
+        out[i] = sum / period;
+      }
+      return out;
+    }
+
+    // ── MACD ──
+    function macd(closes, fastLen, slowLen, sigLen) {
+      const emaFast = ema(closes, fastLen);
+      const emaSlow = ema(closes, slowLen);
+      const macdLine = closes.map((_, i) =>
+        (emaFast[i] != null && emaSlow[i] != null) ? emaFast[i] - emaSlow[i] : null);
+      const firstValid = macdLine.findIndex(v => v !== null);
+      const trimmed = macdLine.slice(firstValid);
+      const sigTrimmed = ema(trimmed, sigLen);
+      const signalLine = new Array(closes.length).fill(null);
+      for (let i = 0; i < sigTrimmed.length; i++) signalLine[firstValid + i] = sigTrimmed[i];
+      return { macdLine, signalLine };
+    }
+
+    // ── ATR (Wilder smoothing, matches Pine's ta.atr) ──
+    function atr(highs, lows, closes, period) {
+      const tr = highs.map((h, i) => {
+        if (i === 0) return h - lows[i];
+        return Math.max(
+          h - lows[i],
+          Math.abs(h - closes[i - 1]),
+          Math.abs(lows[i] - closes[i - 1])
+        );
+      });
+      const out = new Array(tr.length).fill(null);
+      let sum = 0;
+      for (let i = 0; i < period; i++) sum += tr[i];
+      out[period - 1] = sum / period;
+      for (let i = period; i < tr.length; i++) {
+        out[i] = (out[i - 1] * (period - 1) + tr[i]) / period;
+      }
+      return out;
+    }
+
+    // ── Supertrend ──
+    function supertrend(highs, lows, closes, factor, period) {
+      const atrVals = atr(highs, lows, closes, period);
+      const n = closes.length;
+      const st = new Array(n).fill(null);
+      const dir = new Array(n).fill(null);
+      let finalUpper = null, finalLower = null;
+
+      for (let i = 0; i < n; i++) {
+        if (atrVals[i] == null) continue;
+        const hl2 = (highs[i] + lows[i]) / 2;
+        const basicUpper = hl2 + factor * atrVals[i];
+        const basicLower = hl2 - factor * atrVals[i];
+
+        if (finalUpper === null) {
+          finalUpper = basicUpper;
+          finalLower = basicLower;
+          dir[i] = closes[i] > finalLower ? 1 : -1;
+          st[i] = dir[i] === 1 ? finalLower : finalUpper;
+          continue;
+        }
+
+        const prevClose = closes[i - 1];
+        finalUpper = (basicUpper < finalUpper || prevClose > finalUpper) ? basicUpper : finalUpper;
+        finalLower = (basicLower > finalLower || prevClose < finalLower) ? basicLower : finalLower;
+
+        if (st[i - 1] === finalUpper) {
+          dir[i] = closes[i] > finalUpper ? 1 : -1;
+        } else {
+          dir[i] = closes[i] < finalLower ? -1 : 1;
+        }
+        st[i] = dir[i] === 1 ? finalLower : finalUpper;
+      }
+      return st;
+    }
+
+    async function run() {
+      const symbol = document.getElementById("symSelect").value;
+      document.getElementById("output").innerHTML = "Fetching candles for " + symbol + "...";
+
+      try {
+        const res = await fetch(`https://api.bitget.com/api/v2/mix/market/candles?symbol=${symbol}&granularity=15m&limit=200&productType=usdt-futures`);
+        const json = await res.json();
+        let bars = json.data;
+        bars.sort((a, b) => Number(a[0]) - Number(b[0]));
+
+        const closes = bars.map(b => parseFloat(b[4]));
+        const highs  = bars.map(b => parseFloat(b[2]));
+        const lows   = bars.map(b => parseFloat(b[3]));
+        const times  = bars.map(b => new Date(Number(b[0])).toISOString());
+
+        const sma8 = sma(closes, 8);
+        const { macdLine, signalLine } = macd(closes, 12, 26, 9);
+        const st = supertrend(highs, lows, closes, 3, 10);
+
+        const i = closes.length - 1;
+        const bullish = macdLine[i] > signalLine[i] && macdLine[i] < 0 && signalLine[i] < 0 && closes[i] > sma8[i] && sma8[i] > st[i];
+        const bearish = macdLine[i] < signalLine[i] && macdLine[i] > 0 && signalLine[i] > 0 && closes[i] < sma8[i] && sma8[i] < st[i];
+
+        let html = `<h3>Latest bar: ${times[i]}</h3>`;
+        html += `<div class="row"><span class="label">Close</span><span>${closes[i].toFixed(4)}</span></div>`;
+        html += `<div class="row"><span class="label">SMA8</span><span>${sma8[i].toFixed(4)}</span></div>`;
+        html += `<div class="row"><span class="label">MACD line</span><span>${macdLine[i].toFixed(4)}</span></div>`;
+        html += `<div class="row"><span class="label">Signal line</span><span>${signalLine[i].toFixed(4)}</span></div>`;
+        html += `<div class="row"><span class="label">Supertrend</span><span>${st[i].toFixed(4)}</span></div>`;
+        html += `<div class="row"><span class="label">Signal</span><span class="${bullish ? 'ok' : bearish ? 'fail' : ''}">${bullish ? '🟢 LONG' : bearish ? '🔴 SHORT' : '— no signal'}</span></div>`;
+
+        html += `<h3>Last 5 bars (cross-check against your TradingView chart)</h3><pre>`;
+        for (let j = closes.length - 5; j < closes.length; j++) {
+          html += `${times[j]}  close=${closes[j].toFixed(2)}  sma8=${sma8[j]?.toFixed(2)}  macd=${macdLine[j]?.toFixed(3)}  signal=${signalLine[j]?.toFixed(3)}  st=${st[j]?.toFixed(2)}\n`;
+        }
+        html += `</pre>`;
+
+        document.getElementById("output").innerHTML = html;
+      } catch (e) {
+        document.getElementById("output").innerHTML = '<span class="fail">FAILED: ' + e + '</span>';
+      }
+    }
+  </script>
+</body>
+</html>
