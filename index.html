@@ -22,10 +22,13 @@
   .sig-long { color: #4caf50; font-weight: bold; }
   .sig-short { color: #ff5252; font-weight: bold; }
   label { display: flex; align-items: center; gap: 4px; font-size: 13px; color: #ccc; }
+  .footer { margin-top: 20px; padding-top: 14px; border-top: 1px solid #333; font-size: 12px; color: #999; line-height: 1.5; }
+  .footer strong { color: #ccc; }
+  .footer .signature { text-align: right; color: #4ea1ff; margin-top: 10px; }
 </style>
 </head>
 <body>
-  <h2>TBT | Trend Confirmation + Scanner</h2>
+  <h2>TBT | Trend Trailing Scanner</h2>
 
   <div class="controls">
     <select id="groupSelect">
@@ -38,28 +41,38 @@
       <option value="15m" selected>15m</option>
       <option value="1H">1H</option>
       <option value="4H">4H</option>
+      <option value="1D">Daily</option>
     </select>
     <button id="runBtn" onclick="runScan()">Scan</button>
-  </div>
-  <div class="controls">
-    <label><input type="checkbox" id="activeOnly"> Show only active signals</label>
   </div>
   <div class="status" id="status"></div>
 
   <table id="table"></table>
 
+  <div class="footer">
+    <p><strong>How to use this:</strong> a LONG or SHORT signal indicates a proprietary trend-confirmation setup has triggered on the selected timeframe. Once in a trade, consider trailing your stop using an ATR (Average True Range) multiple below/above price — as the trend extends, move your stop up (for longs) or down (for shorts) to lock in gains while giving the trade room to breathe.</p>
+    <p><strong>Disclaimer:</strong> this tool is for informational and educational purposes only and does not constitute financial advice. Signals are generated from historical price data and technical indicators, which have known limitations and can produce false or lagging signals. Trading perpetual futures carries substantial risk of loss. Always do your own research and never risk more than you can afford to lose.</p>
+    <p class="signature">— The Bull Trader 😈</p>
+  </div>
+
   <script>
     // ── Symbol groups (Bitget USDT perpetual futures, no .P suffix for API calls) ──
     const GROUPS = {
-      1: ["APTUSDT","BTCUSDT","XRPUSDT","DOGEUSDT","SOLUSDT","GRAMUSDT","SUIUSDT","ONDOUSDT","ZECUSDT","SEIUSDT",
-          "UNIUSDT","AAVEUSDT","ALGOUSDT","TAOUSDT","ENAUSDT","XLMUSDT","BNBUSDT","LINKUSDT","ADAUSDT","AVAXUSDT",
-          "DOTUSDT","NEARUSDT","ETHUSDT","HYPEUSDT","TRXUSDT","ETCUSDT","FILUSDT","INJUSDT","ARBUSDT","OPUSDT"],
-      2: ["NFLXUSDT","AMDUSDT","CRCLUSDT","AAPLUSDT","PLTRUSDT","NVDAUSDT","LMTUSDT","CSCOUSDT","JPMUSDT","SPCXUSDT",
-          "SLVUSDT","CVXUSDT","BABAUSDT","MAUSDT","UNHUSDT","XAUTUSDT","HOODUSDT","METAUSDT","GOOGLUSDT","TSLAUSDT",
-          "AMZNUSDT","COINUSDT","PGUSDT","MCDUSDT","MSFTUSDT","AVGOUSDT","PEPUSDT","KOUSDT","BRKUSDT","LLYUSDT"],
-      3: ["BASEDUSDT","BGBUSDT","BILLUSDT","PUMPUSDT","LITUSDT","WLFIUSDT","ALLOUSDT","ORDIUSDT","GWEIUSDT","SIRENUSDT",
-          "BANKUSDT","AGLDUSDT","JUPUSDT","FARTCOINUSDT","WIFUSDT","JTOUSDT","EIGENUSDT","XPLUSDT","MORPHOUSDT","PENGUUSDT",
-          "PENDLEUSDT","ETHFIUSDT","USUALUSDT","KATUSDT","MUSDT","SYNUSDT","QUSDT","EDGEUSDT","BSBUSDT","SLXUSDT"]
+      1: ["AAVEUSDT","ADAUSDT","AEROUSDT","ALGOUSDT","APEUSDT","API3USDT","APTUSDT","ATOMUSDT","AUCTIONUSDT","AVAXUSDT",
+          "AXSUSDT","BIOUSDT","BNBUSDT","BTCUSDT","CHZUSDT","C98USDT","CRVUSDT","DOGEUSDT","DOTUSDT","ENAUSDT",
+          "ENJUSDT","ETHUSDT","GRAMUSDT","HBARUSDT","HYPEUSDT","ICPUSDT","INUSDT","IOTXUSDT","KASUSDT","KNCUSDT",
+          "LINKUSDT","MANAUSDT","NEARUSDT","NEOUSDT","NILUSDT","NOTUSDT","ONDOUSDT","PNUTUSDT","QTUMUSDT","RUNEUSDT",
+          "SANDUSDT","SEIUSDT","SOLUSDT","SUIUSDT","TAOUSDT","UNIUSDT","VETUSDT","XLMUSDT","XRPUSDT","ZECUSDT"],
+      2: ["AAPLUSDT","AMDUSDT","AMZNUSDT","AVGOUSDT","BABAUSDT","BOTUSDT","BZUSDT","COINUSDT","COPPERUSDT","CRCLUSDT",
+          "CRWVUSDT","CSCOUSDT","CVXUSDT","DELLUSDT","DRAMUSDT","GLWUSDT","GOOGLUSDT","HOODUSDT","HYUNDAIUSDT","IBMUSDT",
+          "INTCUSDT","IRENUSDT","JPMUSDT","KOUSDT","LLYUSDT","LMTUSDT","MCDUSDT","METAUSDT","MRVLUSDT","MSFTUSDT",
+          "MSTRUSDT","NFLXUSDT","NOWUSDT","NVDAUSDT","ORCLUSDT","PLTRUSDT","QQQUSDT","SAMSUNGUSDT","SKHYNIXUSDT","SNDKUSDT",
+          "SOXLUSDT","SOXSUSDT","SP500USDT","SPCXUSDT","TSLAUSDT","TSMUSDT","UNHUSDT","UVXYUSDT","XAUTUSDT","ZHIPUSDT"],
+      3: ["AGLDUSDT","ALLOUSDT","ARIAUSDT","ATHUSDT","BANKUSDT","BASEDUSDT","BGBUSDT","BILLUSDT","BSBUSDT","DEEPUSDT",
+          "DRIFTUSDT","EIGENUSDT","EDGEUSDT","ETHFIUSDT","FARTCOINUSDT","GLMIUSDT","GRASSUSDT","GWEIUSDT","HUMAUSDT","JTOUSDT",
+          "JUPUSDT","KATUSDT","KAITOUSDT","KGENUSDT","LITUSDT","LUMIAUSDT","MOCAUSDT","MONUSDT","MORPHOUSDT","MUSDT",
+          "ORDIUSDT","PENDLEUSDT","PENGUUSDT","PIXELUSDT","PUMPUSDT","QUSDT","REZUSDT","SIRENUSDT","SLXUSDT","SPACEUSDT",
+          "SUPERUSDT","SYNUSDT","TIAUSDT","TNSRUSDT","USUALUSDT","WIFUSDT","WLFIUSDT","XPLUSDT","ZAMAUSDT","ZORAUSDT"]
     };
 
     // ── Indicator math (same as Day 3) ──
@@ -173,7 +186,6 @@
       const btn = document.getElementById("runBtn");
       const groupNum = document.getElementById("groupSelect").value;
       const granularity = document.getElementById("tfSelect").value;
-      const activeOnly = document.getElementById("activeOnly").checked;
       const symbols = GROUPS[groupNum];
       const statusEl = document.getElementById("status");
       const tableEl = document.getElementById("table");
@@ -202,8 +214,8 @@
       const rows = Math.ceil(symbols.length / 2);
       for (let r = 0; r < rows; r++) {
         const iA = r * 2, iB = iA + 1;
-        html += "<tr>" + cellPair(symbols[iA], results[iA], activeOnly);
-        if (iB < symbols.length) html += cellPair(symbols[iB], results[iB], activeOnly);
+        html += "<tr>" + cellPair(symbols[iA], results[iA]);
+        if (iB < symbols.length) html += cellPair(symbols[iB], results[iB]);
         else html += "<td></td><td></td>";
         html += "</tr>";
       }
@@ -212,14 +224,11 @@
       btn.disabled = false;
     }
 
-    function cellPair(symbol, result, activeOnly) {
+    function cellPair(symbol, result) {
       const name = cleanName(symbol);
       if (!result) {
-        if (activeOnly) return `<td class="neutral"></td><td class="neutral"></td>`;
         return `<td class="neutral">${name}<br><small>no data</small></td><td class="neutral">—</td>`;
       }
-      const active = result.bullish || result.bearish;
-      if (activeOnly && !active) return `<td class="neutral"></td><td class="neutral"></td>`;
       const cls = result.bullish ? "long" : result.bearish ? "short" : "neutral";
       const sigCls = result.bullish ? "sig-long" : result.bearish ? "sig-short" : "";
       const sigText = result.bullish ? "🟢 LONG" : result.bearish ? "🔴 SHORT" : "—";
