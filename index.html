@@ -3,6 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0d0d0d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>TBT Scanner</title>
 <style>
   * { box-sizing: border-box; }
@@ -45,6 +52,16 @@
       <option value="1D">Daily</option>
     </select>
     <button id="runBtn" onclick="runScan()">Scan</button>
+  </div>
+  <div class="controls">
+    <label>Auto-refresh:
+      <select id="autoRefresh" onchange="setupAutoRefresh()">
+        <option value="0">Off</option>
+        <option value="60000">1 min</option>
+        <option value="300000">5 min</option>
+        <option value="900000">15 min</option>
+      </select>
+    </label>
   </div>
   <div class="status" id="status"></div>
 
@@ -239,6 +256,18 @@
       const sigCls = result.bullish ? "sig-long" : result.bearish ? "sig-short" : "";
       const sigText = result.bullish ? "🟢 LONG" : result.bearish ? "🔴 SHORT" : "—";
       return `<td class="${cls}">${name}</td><td class="${cls} ${sigCls}">${sigText}</td>`;
+    }
+    let autoRefreshTimer = null;
+    function setupAutoRefresh() {
+      const ms = parseInt(document.getElementById("autoRefresh").value, 10);
+      if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+      if (ms > 0) autoRefreshTimer = setInterval(runScan, ms);
+    }
+
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("sw.js").catch(() => {});
+      });
     }
   </script>
 </body>
