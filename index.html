@@ -39,10 +39,8 @@
 
   <div class="controls">
     <select id="groupSelect">
-      <option value="core">CORE ECOSYSTEM</option>
-      <option value="finance">FINANCE & UTILITY</option>
-      <option value="growth">GROWTH & NARRATIVES</option>
-      <option value="global">GLOBAL MARKETS</option>
+      <option value="crypto">CRYPTO</option>
+      <option value="tradfi" selected>TRADFI / GLOBAL MARKETS</option>
     </select>
     <select id="tfSelect">
       <option value="5m">5m</option>
@@ -62,6 +60,10 @@
         <option value="900000">15 min</option>
       </select>
     </label>
+    <label>
+      <input type="checkbox" id="activeOnly" checked onchange="runScan()">
+      Show Only Active Signals
+    </label>
   </div>
   <div class="status" id="status"></div>
 
@@ -76,26 +78,35 @@
   <script>
     // ── Symbol groups (Bitget USDT perpetual futures, no .P suffix for API calls) ──
     const GROUPS = {
-      core: ["BTCUSDT","ETHUSDT","BNBUSDT","SOLUSDT","XRPUSDT","ADAUSDT","AVAXUSDT","DOTUSDT","ATOMUSDT","APTUSDT",
-             "SUIUSDT","SEIUSDT","HBARUSDT","ICPUSDT","KASUSDT","TAOUSDT","LINKUSDT","API3USDT","PYTHUSDT","IOTXUSDT",
-             "GRAMUSDT","NEARUSDT","NEOUSDT","QTUMUSDT","VETUSDT","XLMUSDT","ALGOUSDT","AEROUSDT","C98USDT","CHZUSDT",
-             "KNCUSDT","NILUSDT","NOTUSDT","KITEUSDT","GLMUSDT","ZECUSDT","ZAMAUSDT","XPLUSDT","EIGENUSDT","EDGEUSDT",
-             "SLXUSDT","SPACEUSDT","GWEIUSDT","ARBUSDT","OPUSDT","INJUSDT","FILUSDT","LTCUSDT","RENDERUSDT","STXUSDT"],
-      finance: ["AAVEUSDT","UNIUSDT","CRVUSDT","ONDOUSDT","ENAUSDT","ETHFIUSDT","JUPUSDT","JTOUSDT","PENDLEUSDT","SYNUSDT",
-                "REZUSDT","TIAUSDT","DRIFTUSDT","MORPHOUSDT","SUPERUSDT","LITUSDT","LUMIAUSDT","ORDIUSDT","BANKUSDT",
-                "BGBUSDT","BIOUSDT","HUMAUSDT","INUSDT","MUSDT","MONUSDT","AGLDUSDT","ARIAUSDT","ATHUSDT","ALLOUSDT",
-                "AUCTIONUSDT","RUNEUSDT","DEEPUSDT","KATUSDT","KAITOUSDT","KGENUSDT","PEOPLEUSDT","PHAUSDT","NMRUSDT","IOUSDT",
-                "UMAUSDT","WLFIUSDT","USUALUSDT","TNSRUSDT","BILLUSDT","QUSDT","LDOUSDT","DYDXUSDT","GMXUSDT","SNXUSDT","COMPUSDT"],
-      growth: ["FETUSDT","AIXBTUSDT","CGPTUSDT","VIRTUALUSDT","SKYAIUSDT","COOKIEUSDT","GRASSUSDT","SAPIENUSDT","KERNELUSDT","ACTUSDT",
-               "AIOUSDT","AWEUSDT","BABYUSDT","DOLOUSDT","DOGEUSDT","SHIBUSDT","FLOKIUSDT","WIFUSDT","BRETTUSDT","BOMEUSDT",
-               "FARTCOINUSDT","GOATUSDT","PNUTUSDT","DOGSUSDT","TRUMPUSDT","TURBOUSDT","PENGUUSDT","MEWUSDT","ROBOUSDT","SHELLUSDT",
-               "SENTUSDT","SAHARAUSDT","GPSUSDT","TAGUSDT","TUTUSDT","VANAUSDT","WLDUSDT","GALAUSDT","SANDUSDT","MANAUSDT",
-               "PIXELUSDT","APEUSDT","AXSUSDT","ENJUSDT","PUMPUSDT","FLOCKUSDT","BSBUSDT","ZORAUSDT","HYPEUSDT","MEMEUSDT"],
-      global: ["AAPLUSDT","AMDUSDT","AMZNUSDT","AVGOUSDT","BABAUSDT","BOTUSDT","BZUSDT","COINUSDT","COPPERUSDT","CRCLUSDT",
-               "CRWVUSDT","CSCOUSDT","CVXUSDT","DELLUSDT","DRAMUSDT","GLWUSDT","GOOGLUSDT","HOODUSDT","HYUNDAIUSDT","IBMUSDT",
-               "INTCUSDT","IRENUSDT","JPMUSDT","KOUSDT","LLYUSDT","LMTUSDT","MCDUSDT","METAUSDT","MRVLUSDT","MSFTUSDT",
-               "MSTRUSDT","NFLXUSDT","NOWUSDT","NVDAUSDT","ORCLUSDT","PLTRUSDT","QQQUSDT","SAMSUNGUSDT","SKHYNIXUSDT","SNDKUSDT",
-               "SOXLUSDT","SOXSUSDT","SP500USDT","SPCXUSDT","TSLAUSDT","TSMUSDT","UNHUSDT","UVXYUSDT","XAUTUSDT","RDDTUSDT"]
+      crypto: [
+        "BTCUSDT","ETHUSDT","BNBUSDT","SOLUSDT","XRPUSDT","ADAUSDT","AVAXUSDT","DOTUSDT","ATOMUSDT","APTUSDT",
+        "SUIUSDT","SEIUSDT","HBARUSDT","ICPUSDT","KASUSDT","TAOUSDT","LINKUSDT","API3USDT","PYTHUSDT","IOTXUSDT",
+        "GRAMUSDT","NEARUSDT","NEOUSDT","QTUMUSDT","VETUSDT","XLMUSDT","ALGOUSDT","AEROUSDT","C98USDT","CHZUSDT",
+        "KNCUSDT","NILUSDT","NOTUSDT","KITEUSDT","GLMUSDT","ZECUSDT","ZAMAUSDT","XPLUSDT","EIGENUSDT","EDGEUSDT",
+        "SLXUSDT","SPACEUSDT","GWEIUSDT","ARBUSDT","OPUSDT","INJUSDT","FILUSDT","LTCUSDT","RENDERUSDT","STXUSDT",
+        "AAVEUSDT","UNIUSDT","CRVUSDT","ONDOUSDT","ENAUSDT","ETHFIUSDT","JUPUSDT","JTOUSDT","PENDLEUSDT","SYNUSDT",
+        "REZUSDT","TIAUSDT","DRIFTUSDT","MORPHOUSDT","SUPERUSDT","LITUSDT","LUMIAUSDT","ORDIUSDT","BANKUSDT",
+        "BGBUSDT","BIOUSDT","HUMAUSDT","INUSDT","MUSDT","MONUSDT","AGLDUSDT","ARIAUSDT","ATHUSDT","ALLOUSDT",
+        "AUCTIONUSDT","RUNEUSDT","DEEPUSDT","KATUSDT","KAITOUSDT","KGENUSDT","PEOPLEUSDT","PHAUSDT","NMRUSDT","IOUSDT",
+        "UMAUSDT","WLFIUSDT","USUALUSDT","TNSRUSDT","BILLUSDT","QUSDT","LDOUSDT","DYDXUSDT","GMXUSDT","SNXUSDT","COMPUSDT",
+        "FETUSDT","AIXBTUSDT","CGPTUSDT","VIRTUALUSDT","SKYAIUSDT","COOKIEUSDT","GRASSUSDT","SAPIENUSDT","KERNELUSDT","ACTUSDT",
+        "AIOUSDT","AWEUSDT","BABYUSDT","DOLOUSDT","DOGEUSDT","SHIBUSDT","FLOKIUSDT","WIFUSDT","BRETTUSDT","BOMEUSDT",
+        "FARTCOINUSDT","GOATUSDT","PNUTUSDT","DOGSUSDT","TRUMPUSDT","TURBOUSDT","PENGUUSDT","MEWUSDT","ROBOUSDT","SHELLUSDT",
+        "SENTUSDT","SAHARAUSDT","GPSUSDT","TAGUSDT","TUTUSDT","VANAUSDT","WLDUSDT","GALAUSDT","SANDUSDT","MANAUSDT",
+        "PIXELUSDT","APEUSDT","AXSUSDT","ENJUSDT","PUMPUSDT","FLOCKUSDT","BSBUSDT","ZORAUSDT","HYPEUSDT","MEMEUSDT"
+      ],
+      tradfi: [
+        "AAPLUSDT","AMDUSDT","AMZNUSDT","AVGOUSDT","BABAUSDT","BOTUSDT","BZUSDT","COINUSDT","COPPERUSDT","CRCLUSDT",
+        "CRWVUSDT","CSCOUSDT","CVXUSDT","DELLUSDT","DRAMUSDT","GLWUSDT","GOOGLUSDT","HOODUSDT","HYUNDAIUSDT","IBMUSDT",
+        "INTCUSDT","IRENUSDT","JPMUSDT","KOUSDT","LLYUSDT","LMTUSDT","MCDUSDT","METAUSDT","MRVLUSDT","MSFTUSDT",
+        "MSTRUSDT","NFLXUSDT","NOWUSDT","NVDAUSDT","ORCLUSDT","PLTRUSDT","QQQUSDT","SAMSUNGUSDT","SKHYNIXUSDT","SNDKUSDT",
+        "SOXLUSDT","SOXSUSDT","SP500USDT","SPCXUSDT","TSLAUSDT","TSMUSDT","UNHUSDT","UVXYUSDT","XAUTUSDT","RDDTUSDT",
+        "ADBEUSDT","ARQQUSDT","AVAVUSDT","AXONUSDT","BRKBUSDT","CONLUSDT","COPUSDT","CPNGUSDT","CRMUSDT","DISKUSDT",
+        "DOOSBOTUSDT","DOOSENERUSDT","EHUSDT","EVEXUSDT","EWTUSDT","GIGADEVICEUSDT","IONQUSDT","ISRGUSDT","IWMUSDT",
+        "KSTRUSDT","LINUSDT","MDBUSDT","MINIMAXUSDT","MSTUUSDT","MVLLUSDT","NTAPUSDT","OPENAIUSDT","OXYUSDT","PKXUSDT",
+        "PLUSDT","SATLUSDT","SMHUSDT","SNOWUSDT","SPYUSDT","SQQQUSDT","TQQQUSDT","TOKYOELUSDT","XOMUSDT","XLUUSDT",
+        "XNDUUSDT","ZHIPUUSDT"
+      ]
     };
 
     // ── Indicator math (same as Day 3) ──
@@ -209,14 +220,14 @@
       const btn = document.getElementById("runBtn");
       const groupNum = document.getElementById("groupSelect").value;
       const granularity = document.getElementById("tfSelect").value;
-      const symbols = GROUPS[groupNum];
+      let symbols = GROUPS[groupNum];
       const statusEl = document.getElementById("status");
       const tableEl = document.getElementById("table");
 
       btn.disabled = true;
       tableEl.innerHTML = "";
       let done = 0;
-      const results = new Array(symbols.length).fill(null);
+      let results = new Array(symbols.length).fill(null);
 
       // fetch with light concurrency (5 at a time) to avoid rate limits
       const CONCURRENCY = 5;
@@ -232,18 +243,43 @@
       }
       await Promise.all(new Array(CONCURRENCY).fill(0).map(worker));
 
-      // build table, 2 symbol/signal pairs per row (4 columns)
-      let html = "<tr><th>Symbol</th><th>Signal</th><th>Symbol</th><th>Signal</th></tr>";
-      const rows = Math.ceil(symbols.length / 2);
-      for (let r = 0; r < rows; r++) {
-        const iA = r * 2, iB = iA + 1;
-        html += "<tr>" + cellPair(symbols[iA], results[iA]);
-        if (iB < symbols.length) html += cellPair(symbols[iB], results[iB]);
-        else html += "<td></td><td></td>";
-        html += "</tr>";
+      // build table with active-only support
+      const activeOnly = document.getElementById("activeOnly").checked;
+      let displaySymbols = symbols;
+      let displayResults = results;
+      if (activeOnly) {
+        displaySymbols = [];
+        displayResults = [];
+        for (let i = 0; i < symbols.length; i++) {
+          if (results[i] && (results[i].bullish || results[i].bearish)) {
+            displaySymbols.push(symbols[i]);
+            displayResults.push(results[i]);
+          }
+        }
+      }
+
+      let html = "";
+      if (activeOnly && displaySymbols.length === 0) {
+        html = "<tr><td colspan='4' class='neutral'>No active signals found.</td></tr>";
+      } else if (activeOnly) {
+        html = "<tr><th>Symbol</th><th>Signal</th></tr>";
+        for (let i = 0; i < displaySymbols.length; i++) {
+          html += "<tr>" + cellPairCompact(displaySymbols[i], displayResults[i]) + "</tr>";
+        }
+      } else {
+        html = "<tr><th>Symbol</th><th>Signal</th><th>Symbol</th><th>Signal</th></tr>";
+        const rows = Math.ceil(displaySymbols.length / 2);
+        for (let r = 0; r < rows; r++) {
+          const iA = r * 2, iB = iA + 1;
+          html += "<tr>" + cellPair(displaySymbols[iA], displayResults[iA]);
+          if (iB < displaySymbols.length) html += cellPair(displaySymbols[iB], displayResults[iB]);
+          else html += "<td></td><td></td>";
+          html += "</tr>";
+        }
       }
       tableEl.innerHTML = html;
-      statusEl.textContent = `Done — ${symbols.length} symbols, ${granularity} timeframe`;
+      const totalScanned = GROUPS[groupNum].length;
+      statusEl.textContent = `Done — ${totalScanned} symbols scanned, ${displaySymbols.length} shown (${granularity} TF)`;
       btn.disabled = false;
     }
 
@@ -252,6 +288,14 @@
       if (!result) {
         return `<td class="neutral">${name}<br><small>no data</small></td><td class="neutral">—</td>`;
       }
+      const cls = result.bullish ? "long" : result.bearish ? "short" : "neutral";
+      const sigCls = result.bullish ? "sig-long" : result.bearish ? "sig-short" : "";
+      const sigText = result.bullish ? "🟢 LONG" : result.bearish ? "🔴 SHORT" : "—";
+      return `<td class="${cls}">${name}</td><td class="${cls} ${sigCls}">${sigText}</td>`;
+    }
+
+    function cellPairCompact(symbol, result) {
+      const name = cleanName(symbol);
       const cls = result.bullish ? "long" : result.bearish ? "short" : "neutral";
       const sigCls = result.bullish ? "sig-long" : result.bearish ? "sig-short" : "";
       const sigText = result.bullish ? "🟢 LONG" : result.bearish ? "🔴 SHORT" : "—";
